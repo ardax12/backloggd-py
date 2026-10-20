@@ -363,8 +363,7 @@ uv run pytest
 - [x] Global games catalog browsing (`browse_games`)
 - [x] Persistent multi-table SQLite cache with customizable TTLs
 - [x] Bayesian taste similarity engine & recommendations
-- [ ] Rich terminal CLI (`backloggd-cli`)
-- [ ] PyPI publishing via GitHub Actions CI/CD
+- [x] PyPI publishing via GitHub Actions CI/CD
 
 ---
 
