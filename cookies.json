@@ -1,7 +1,7 @@
 [
-    {
-        "name": "_backloggd_session",
-        "value": "your cookie here",
-        "domain": "backloggd.com"
-    }
+  {
+    "name": "_backloggd_session",
+    "value": "your_session_cookie_here",
+    "domain": "backloggd.com"
+  }
 ]
