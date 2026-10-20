@@ -50,20 +50,7 @@ with Backloggd() as client:
 
 ## Installation
 
-### From Source (Current)
-
-```bash
-git clone https://github.com/ardax12/backloggd-matcher.git
-cd backloggd-matcher
-pip install -e .
-```
-
-Or using [`uv`](https://github.com/astral-sh/uv):
-```bash
-uv pip install -e ".[dev]"
-```
-
-### From PyPI (Upcoming v0.1.0 release)
+### From PyPI
 
 ```bash
 pip install backloggd-py
