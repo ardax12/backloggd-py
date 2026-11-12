@@ -6,7 +6,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Union, Callable
+from typing import Iterable, Optional, Union, Callable
 import httpx
 
 from backloggd.exceptions import (
@@ -24,7 +24,7 @@ from backloggd.models.game import GameEntry, GameDetails, GameStatsSummary, Game
 from backloggd.models.library import UserLibrary
 from backloggd.models.user import UserProfile, UserSummary
 from backloggd.models.journal import JournalEntry
-from backloggd.models.activity import ActivityEntry
+from backloggd.models.activity import ActivityEntry, ActivitySnapshot
 from backloggd.models.comparison import MatchComparison
 from backloggd.models.review import Review
 from backloggd.models.list import UserList, UserListSummary
@@ -743,6 +743,32 @@ class Backloggd:
         resp = self._request_with_retry("GET", url, resource_type="user")
         validate_activity_page(resp.text)
         return parse_user_activity_page(resp.text, user)
+
+    def get_user_activity_snapshot(
+        self,
+        username: str,
+        *,
+        stop_at_ids: Iterable[str] = (),
+        max_pages: int = 5,
+    ) -> ActivitySnapshot:
+        """Fetch activity with honest coverage metadata.
+
+        Backloggd's current activity page has no validated pagination control.
+        Until that changes, this reads only the latest page and reports
+        ``unsupported`` unless a requested known ID establishes the boundary.
+        ``max_pages`` is reserved as a bounded budget for future supported
+        pagination and must therefore be positive today as well.
+        """
+        if max_pages < 1:
+            raise ValueError("max_pages must be positive")
+        entries = self.get_user_activity(username)
+        stop_ids = {event_id for event_id in stop_at_ids if event_id}
+        found_boundary = any(entry.activity_id in stop_ids for entry in entries)
+        return ActivitySnapshot(
+            entries=entries,
+            coverage="boundary_reached" if found_boundary else "unsupported",
+            pages_read=1,
+        )
 
     def get_user_journal(
         self,

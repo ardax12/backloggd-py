@@ -1,6 +1,6 @@
 """Typed game activity scraped from a user activity stream."""
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional
 
 @dataclass(slots=True, frozen=True)
 class ActivityEntry:
@@ -17,4 +17,13 @@ class ActivityEntry:
     reference: Optional[str] = None
     is_replay: bool = False
     has_spoilers: bool = False
+
+
+@dataclass(slots=True, frozen=True)
+class ActivitySnapshot:
+    """A validated activity fetch and an explicit statement of its coverage."""
+
+    entries: list[ActivityEntry]
+    coverage: Literal["boundary_reached", "exhausted", "limited", "unsupported"]
+    pages_read: int
 

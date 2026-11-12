@@ -359,7 +359,7 @@ uv run pytest
 Distributed under the [MIT License](LICENSE).
 
 
-## Activity and dated journal APIs (0.2.0)
+## Activity and dated journal APIs
 
 Both clients expose `get_user_activity(username)`, returning the latest personal
 `ActivityEntry` objects, including explicit rating-only actions. The async client
@@ -367,6 +367,15 @@ requires `await`; the synchronous `Backloggd` client has the same method.
 `ActivityEntry` is exported from `backloggd` and includes the action, game,
 rating, notes, immutable timestamp (`occurred_at`), and numeric permalink
 (`reference`) when the page exposes them. It contains no Discord state.
+
+The source tree adds `get_user_activity_snapshot(username, *, stop_at_ids=(),
+max_pages=5)`, returning an `ActivitySnapshot` with `entries`, `coverage`, and
+`pages_read`. This additive method is not in the published 0.2.0 package. Current public
+activity pages expose no validated pagination control, so the SDK reads one page
+and reports `coverage="unsupported"` unless it finds a supplied boundary ID on
+that page. It never treats an empty or challenged response as proof that history
+is complete. The positive `max_pages` budget is part of the additive API contract
+for future pagination support; it does not make the current page paginated.
 
 `get_user_journal(username, max_pages=100, require_complete=True)` returns dated
 `JournalEntry` objects with `session_labels` such as `("Started",)` or
