@@ -16,6 +16,7 @@ class JournalEntry:
     is_replay: bool = False
     review_notes: Optional[str] = None
     cover_url: Optional[str] = None
+    session_labels: tuple[str, ...] = ()
 
     @property
     def url(self) -> str:

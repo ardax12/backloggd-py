@@ -49,16 +49,26 @@ def parse_review_card(
         except (ValueError, IndexError):
             pass
 
-    # Review written text
+    # Review written text with proper whitespace handling
     review_text = ""
-    # Review body is usually inside card-text or paragraphs
     body_div = card.select_one(".review-text, .card-text, .body-text, .review-body")
     if body_div:
-        review_text = body_div.get_text(strip=True)
+        for el in body_div.find_all(["br", "p", "div"]):
+            el.insert_after(" ")
+        raw = body_div.get_text()
+        review_text = re.sub(r"[\r\n]+", " ", raw)
+        review_text = re.sub(r"([a-zA-Z0-9]),([a-zA-Z])", r"\1, \2", review_text)
+        review_text = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", review_text)
+        review_text = re.sub(r"\s+", " ", review_text).strip()
     else:
-        # Fallback to paragraph elements
         for p in card.find_all("p"):
-            txt = p.get_text(strip=True)
+            for el in p.find_all(["br"]):
+                el.insert_after(" ")
+            txt = p.get_text()
+            txt = re.sub(r"[\r\n]+", " ", txt)
+            txt = re.sub(r"([a-zA-Z0-9]),([a-zA-Z])", r"\1, \2", txt)
+            txt = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", txt)
+            txt = re.sub(r"\s+", " ", txt).strip()
             if len(txt) > 20 and not any(k in txt for k in ["Edit log", "Completed", "Likes"]):
                 review_text = txt
                 break

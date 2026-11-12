@@ -32,3 +32,7 @@ class ListNotFoundError(ResourceNotFoundError):
 
 class ReviewNotFoundError(ResourceNotFoundError):
     """Raised when a review does not exist (HTTP 404)."""
+
+
+class PageParseError(BackloggdError):
+    """A page has an unknown layout or a requested complete scan was truncated."""

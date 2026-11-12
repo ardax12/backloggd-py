@@ -1,3 +1,4 @@
+from backloggd.models.activity import ActivityEntry
 from backloggd.models.game import (
     GameEntry,
     GameStatus,
@@ -23,6 +24,7 @@ __all__ = [
     "UserStats",
     "UserSummary",
     "JournalEntry",
+    "ActivityEntry",
     "MatchComparison",
     "RatingDisagreement",
     "Review",

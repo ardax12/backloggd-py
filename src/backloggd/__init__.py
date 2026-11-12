@@ -1,11 +1,14 @@
 """Backloggd Python SDK and Taste Matcher."""
 
+from backloggd.models.activity import ActivityEntry
+
 from backloggd.client import BackloggdClient
 from backloggd.sync_client import Backloggd
 from backloggd.cache import CacheManager
 from backloggd.utils import load_cookies, build_games_url
 from backloggd.exceptions import (
     BackloggdError,
+    PageParseError,
     ChallengeResponseError,
     RateLimitError,
     ResourceNotFoundError,
@@ -33,7 +36,7 @@ from backloggd.models import (
 )
 from backloggd.analytics.matcher import calculate_similarity_raw, compare_libraries
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # Clients, Cache & Utilities
@@ -56,6 +59,7 @@ __all__ = [
     "UserStats",
     "UserSummary",
     "JournalEntry",
+    "ActivityEntry",
     "MatchComparison",
     "RatingDisagreement",
     # Analytics
@@ -63,6 +67,7 @@ __all__ = [
     "compare_libraries",
     # Exceptions
     "BackloggdError",
+    "PageParseError",
     "ChallengeResponseError",
     "RateLimitError",
     "ResourceNotFoundError",

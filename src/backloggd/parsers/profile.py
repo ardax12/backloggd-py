@@ -23,21 +23,91 @@ def parse_user_profile_page(html: str, username: str) -> UserProfile:
     except Exception:
         soup = BeautifulSoup(html, "html.parser")
 
-    # 1. Avatar URL
+    # 1. Avatar URL: check OpenGraph/Twitter meta tags first (Backloggd standard), then HTML selectors
     avatar_url: Optional[str] = None
-    avatar_img = soup.select_one(".avatar img, [class*='avatar'] img, img[src*='backloggd-avatars']")
-    if avatar_img and avatar_img.get("src"):
-        src = avatar_img["src"]
-        if not src.endswith("no_avatar.jpg"):
-            avatar_url = src
+    og_image = soup.select_one("meta[property='og:image'], meta[name='og:image'], meta[property='twitter:image']")
+    if og_image and og_image.get("content"):
+        content_url = og_image["content"].strip()
+        if content_url and not any(k in content_url for k in ["no_avatar.jpg", "no_avatar.png", "default_avatar"]):
+            if content_url.startswith("//"):
+                content_url = f"https:{content_url}"
+            elif content_url.startswith("/"):
+                content_url = f"https://backloggd.com{content_url}"
+            avatar_url = content_url
 
-    # 2. Bio text
+    if not avatar_url:
+        avatar_selectors = [
+            "#profile-header img",
+            "img.profile-avatar",
+            ".profile-avatar img",
+            ".user-avatar img",
+            "img.user-avatar",
+            ".avatar img",
+            "img.avatar",
+            "[class*='avatar'] img",
+            "img[class*='avatar']",
+            "img[src*='avatar']",
+            "img[src*='avatars']",
+            "img[src*='backloggd-avatars']",
+            ".profile-pic img",
+            "img.profile-pic",
+            "img[alt*='avatar']",
+            "img[alt*='profile']",
+            ".user-details img"
+        ]
+        for selector in avatar_selectors:
+            avatar_img = soup.select_one(selector)
+            if avatar_img:
+                src = avatar_img.get("src") or avatar_img.get("data-src") or avatar_img.get("data-original")
+                if src and not any(k in src for k in ["no_avatar.jpg", "no_avatar.png", "default_avatar"]):
+                    if src.startswith("//"):
+                        src = f"https:{src}"
+                    elif src.startswith("/"):
+                        src = f"https://backloggd.com{src}"
+                    avatar_url = src
+                    break
+
+        if not avatar_url:
+            avatar_url = "https://backloggd.b-cdn.net/no_avatar.jpg"
+
+    # 2. Bio text: check #bio-body first (Backloggd DOM container), then other profile bio selectors
     bio: Optional[str] = None
-    bio_el = soup.select_one("#profile-bio, #bio, .profile-bio, .user-bio, .bio")
-    if bio_el:
-        bio_text = _clean_text(bio_el)
-        if bio_text:
-            bio = bio_text
+    bio_selectors = [
+        "#bio-body",
+        "#profile-bio",
+        "#bio",
+        ".profile-bio",
+        ".user-bio",
+        "p.bio",
+        ".profile-description",
+        "#profile-description",
+        ".user-description",
+        "#user-bio",
+        ".bio-content",
+        ".about-me",
+        "#about-me",
+        ".profile-about",
+        "#profile-header p",
+        ".user-details p",
+        "div[class*='bio']",
+        "p[class*='bio']"
+    ]
+    for selector in bio_selectors:
+        bio_el = soup.select_one(selector)
+        if bio_el:
+            # Replace line breaks and paragraph tags with spaces so words never combine
+            for br in bio_el.find_all(["br", "p", "div"]):
+                br.insert_after(" ")
+            raw_text = bio_el.get_text()
+            if raw_text:
+                # Normalize spaces and fix combined words
+                cleaned = re.sub(r"[\r\n]+", " ", raw_text)
+                cleaned = re.sub(r"([a-zA-Z0-9]),([a-zA-Z])", r"\1, \2", cleaned)
+                cleaned = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", cleaned)
+                cleaned = re.sub(r"\s+", " ", cleaned).strip()
+                if cleaned and cleaned.lower() not in ["nothing here!", "nothing here."] and not any(k in cleaned.lower() for k in ["edit profile", "settings", "followers", "following"]):
+                    bio = cleaned
+                    break
 
     # 3. Short URL
     short_url: Optional[str] = None

@@ -11,6 +11,7 @@ import httpx
 
 from backloggd.exceptions import (
     BackloggdError,
+    PageParseError,
     ChallengeResponseError,
     RateLimitError,
     ResourceNotFoundError,
@@ -23,6 +24,7 @@ from backloggd.models.game import GameEntry, GameDetails, GameStatsSummary, Game
 from backloggd.models.library import UserLibrary
 from backloggd.models.user import UserProfile, UserSummary
 from backloggd.models.journal import JournalEntry
+from backloggd.models.activity import ActivityEntry
 from backloggd.models.comparison import MatchComparison
 from backloggd.models.review import Review
 from backloggd.models.list import UserList, UserListSummary
@@ -37,7 +39,8 @@ from backloggd.parsers.lists import parse_user_lists_overview, parse_single_list
 from backloggd.parsers.search import parse_game_search_results
 from backloggd.parsers.profile import parse_user_profile_page
 from backloggd.parsers.social import parse_user_social_page
-from backloggd.parsers.journal import parse_journal_page
+from backloggd.parsers.journal import parse_journal_page, validate_journal_page
+from backloggd.parsers.activity import parse_user_activity_page, validate_activity_page
 from backloggd.analytics.matcher import compare_libraries
 from backloggd.cache import (
     CacheManager,
@@ -149,6 +152,8 @@ class Backloggd:
             "proof-of-work",
             "proof of work",
             "anubis_challenge",
+            "botstopper",
+            "/.bunny-shield/assets/shield-challenge.js",
             "making sure you're not a bot",
             "making sure you are not a bot",
         )
@@ -727,12 +732,33 @@ class Backloggd:
 
     # ==================== User Play Journal ====================
 
+    def get_user_activity(self, username: str) -> list[ActivityEntry]:
+        """Fetch the latest personal game activities, including rating-only actions.
+
+        Raises PageParseError for unknown layouts and ChallengeResponseError for
+        security challenges. A successfully empty stream returns an empty list.
+        """
+        user = self.clean_username(username)
+        url = f"{BASE_URL}/u/{user}/activity/you/"
+        resp = self._request_with_retry("GET", url, resource_type="user")
+        validate_activity_page(resp.text)
+        return parse_user_activity_page(resp.text, user)
+
     def get_user_journal(
         self,
         username: str,
         max_pages: Optional[int] = None,
+        *,
+        require_complete: bool = False,
     ) -> list[JournalEntry]:
-        """Fetch playthrough journal logs for a user (/u/<user>/journal/) synchronously."""
+        """Fetch dated journal rows, including Started/Finished session labels.
+
+        ``max_pages`` optionally limits history. With ``require_complete=True``,
+        reaching that limit while more pages exist raises PageParseError rather
+        than returning a partial snapshot. Invalid pages always raise.
+        """
+        if max_pages is not None and max_pages < 1:
+            raise ValueError("max_pages must be positive")
         user = self.clean_username(username)
         url = f"{BASE_URL}/u/{user}/journal/"
         journal_entries: list[JournalEntry] = []
@@ -743,7 +769,12 @@ class Backloggd:
                 break
 
             resp = self._request_with_retry("GET", url, resource_type="user", params={"page": page})
+            validate_journal_page(resp.text)
             entries, has_more = parse_journal_page(resp.text)
+            if has_more and require_complete and max_pages is not None and page >= max_pages:
+                raise PageParseError("Journal page limit reached before a complete history was read")
+            if not entries and has_more:
+                raise PageParseError("Journal page has pagination but no recognizable entries")
             if not entries:
                 break
 

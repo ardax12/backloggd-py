@@ -132,3 +132,19 @@ def clean_slug(game_or_slug: str) -> str:
     if "/games/" in clean:
         return clean.split("/games/")[1].split("/")[0]
     return clean.strip("/")
+
+
+def clean_image_url(url: Optional[str]) -> Optional[str]:
+    """Ensure image URLs are well-formed absolute URLs for Discord embeds."""
+    if not url:
+        return None
+    cleaned = str(url).strip()
+    if not cleaned:
+        return None
+    if cleaned.startswith("//"):
+        return f"https:{cleaned}"
+    if cleaned.startswith("/"):
+        return f"https://backloggd.com{cleaned}"
+    if not cleaned.startswith("http://") and not cleaned.startswith("https://"):
+        return f"https://{cleaned}"
+    return cleaned

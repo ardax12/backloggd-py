@@ -1,9 +1,9 @@
 # backloggd-py
 
-[![PyPI version](https://img.shields.io/badge/pypi-v0.1.0-blue.svg)](https://pypi.org/project/backloggd-py/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.2.0-blue.svg)](https://pypi.org/project/backloggd-py/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests: 28 Passing](https://img.shields.io/badge/tests-28%20passing-brightgreen.svg)](#testing)
+[![Tests: 51 Offline Passing](https://img.shields.io/badge/tests-51%20offline%20passing-brightgreen.svg)](#testing)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 A modern, high-performance async & sync Python SDK, web scraper, and taste-matching recommendation engine for [Backloggd](https://backloggd.com).
@@ -357,3 +357,39 @@ uv run pytest
 ## License
 
 Distributed under the [MIT License](LICENSE).
+
+
+## Activity and dated journal APIs (0.2.0)
+
+Both clients expose `get_user_activity(username)`, returning the latest personal
+`ActivityEntry` objects, including explicit rating-only actions. The async client
+requires `await`; the synchronous `Backloggd` client has the same method.
+`ActivityEntry` is exported from `backloggd` and includes the action, game,
+rating, notes, immutable timestamp (`occurred_at`), and numeric permalink
+(`reference`) when the page exposes them. It contains no Discord state.
+
+`get_user_journal(username, max_pages=100, require_complete=True)` returns dated
+`JournalEntry` objects with `session_labels` such as `("Started",)` or
+`("Finished",)`, alongside platform, rating, and replay metadata. Existing
+callers keep the default `require_complete=False` and may request partial
+history. With `require_complete=True`, reaching the page limit while more pages
+exist raises `PageParseError`; a failed later page never returns partial data.
+
+Public clients validate responses and page layouts. A recognized empty stream
+returns `[]`; unknown layouts raise `PageParseError`, and security challenges
+raise `ChallengeResponseError`. Consumers should retry failures rather than
+interpreting them as empty histories.
+
+Journal `entry_id` remains the legacy game ID for compatibility; it is not a
+unique playthrough/session ID. The inspected public journal and individual log
+pages expose no such ID. Applications must not deduplicate sessions by game ID
+alone. This SDK parses data; consumers decide which events to display.
+
+Offline checks (including captured HTML and mocked async/sync HTTP APIs):
+
+```shell
+python -m pytest -q --ignore=tests/test_sync_client.py
+```
+
+`tests/test_sync_client.py` contains two existing live-network smoke tests;
+run those separately when Backloggd access and appropriate cookies are available.
