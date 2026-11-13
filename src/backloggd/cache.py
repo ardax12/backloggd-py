@@ -18,6 +18,7 @@ DEFAULT_PROFILE_TTL = 86400.0       # 24 hours
 DEFAULT_GAME_TTL = 604800.0         # 7 days
 DEFAULT_REVIEW_TTL = 86400.0        # 24 hours
 DEFAULT_LIST_TTL = 86400.0          # 24 hours
+LIBRARY_CACHE_VERSION = 2  # Older libraries may contain the viewer's statuses/logs.
 
 
 class CacheManager:
@@ -235,8 +236,10 @@ class CacheManager:
                 return None
 
             data = json.loads(library_json) if isinstance(library_json, str) else library_json
+            if not isinstance(data, dict) or data.get("version") != LIBRARY_CACHE_VERSION:
+                return None
             library = UserLibrary(username=clean_user)
-            for item in data:
+            for item in data["games"]:
                 library.add(
                     GameEntry(
                         slug=item["slug"],
@@ -292,7 +295,7 @@ class CacheManager:
                     total_games = excluded.total_games,
                     cached_at = excluded.cached_at
                 """,
-                (clean_user, json.dumps(data), len(library), time.time()),
+                (clean_user, json.dumps({"version": LIBRARY_CACHE_VERSION, "games": data}), len(library), time.time()),
             )
             conn.commit()
         except Exception:

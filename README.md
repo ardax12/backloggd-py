@@ -131,6 +131,20 @@ with Backloggd() as client:
     wishlist = client.get_user_wishlist("ardax12", max_pages=1)
 ```
 
+Collection statuses describe the **profile owner**, independently of who is
+logged in. `get_user_library()` follows the owner's Played tab by default;
+Playing, Backlog, and Wishlist are separate collections exposed by the targeted
+methods above. `played` does not imply completion.
+
+The parser uses the page's owner collection marker, not viewer quick-edit logs
+or faded-cover classes. Without a recognized owner collection, status stays
+`unknown`. Visible ratings belong to the owner. These collection pages do not
+establish the owner's completion label, log ID, log timestamp, or like flag:
+`status_title`, `log_id`, and `logged_at` stay `None`, and `is_liked` retains its
+default `False` (not a verified unlike). Old SDK library-cache records are
+invalidated automatically so viewer-derived values are fetched again. External
+databases populated by older SDK versions still require a library refresh.
+
 ### 3. Path-Based Sorting & Filtering
 
 Backloggd organizes filters as URL path segments (e.g. `/games/rating/type:played;release_platform:ps5/`). The SDK translates standard Python dictionaries:

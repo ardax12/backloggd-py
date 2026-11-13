@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+from urllib.parse import urlsplit
 from bs4 import BeautifulSoup, Tag
 from backloggd.models.game import GameEntry, GameStatus
 
@@ -10,14 +11,23 @@ PAGE_SIZE = 70
 
 def parse_rating(element: Tag) -> Optional[float]:
     """Extract rating from a game card element."""
-    rated_el = element.find(attrs={"data-rating": True})
+    # The visible cover holds the owner's rating; sibling preloaded logs hold
+    # the viewer's rating, including when the owner has never rated the game.
+    cover = element if "game-cover" in element.get("class", []) else element.select_one(".game-cover")
+    scope = cover if cover is not None else element
+    rated_el = scope if scope.has_attr("data-rating") else scope.find(attrs={"data-rating": True})
+    if rated_el and (
+        rated_el.has_attr("data-log-id")
+        or rated_el.find_parent(id=lambda value: bool(value and value.startswith("preloaded-log-")))
+    ):
+        rated_el = None
     if rated_el and rated_el.get("data-rating"):
         try:
             return float(rated_el["data-rating"]) / 2.0
         except (ValueError, TypeError):
             pass
 
-    stars_top = element.select_one(".stars-top")
+    stars_top = scope.select_one(".stars-top")
     if stars_top and "width:" in stars_top.get("style", ""):
         try:
             w = stars_top["style"].split("width:")[1].split("%")[0].strip()
@@ -28,54 +38,32 @@ def parse_rating(element: Tag) -> Optional[float]:
     return None
 
 
-def parse_status_and_metadata(card: Tag) -> tuple[GameStatus, Optional[str], bool, Optional[str], Optional[datetime]]:
-    """Extract log status, like flag, log ID, and log timestamp from preloaded log divs or quick-access buttons."""
-    status = GameStatus.UNKNOWN
-    status_title: Optional[str] = None
-    is_liked = False
-    log_id: Optional[str] = None
-    logged_at: Optional[datetime] = None
-
-    # Inspect preloaded log div
-    log_div = card.find(lambda t: t.name == "div" and (t.has_attr("data-log-id") or t.has_attr("data-is-play")))
-    if log_div:
-        log_id = log_div.get("data-log-id")
-        status_title = log_div.get("data-status-title")
-        is_liked = bool(log_div.get("data-is-liked"))
-
-        play_str = log_div.get("data-is-play")
-        if play_str:
-            status = GameStatus.PLAYED
-            try:
-                # Format: "2022-09-16 09:25:59 UTC"
-                clean_str = play_str.replace(" UTC", "")
-                logged_at = datetime.fromisoformat(clean_str)
-            except Exception:
-                pass
-        elif log_div.get("data-is-playing"):
-            status = GameStatus.PLAYING
-        elif log_div.get("data-is-backlog"):
-            status = GameStatus.BACKLOG
-        elif log_div.get("data-is-wishlist"):
-            status = GameStatus.WISHLIST
-
-    # Fallback to class cues if preloaded log not present
-    if status == GameStatus.UNKNOWN:
-        card_classes = card.get("class", [])
-        classes_str = " ".join(card_classes) if isinstance(card_classes, list) else str(card_classes)
-        if "fade-played" in classes_str:
-            status = GameStatus.PLAYED
-        elif "fade-playing" in classes_str:
-            status = GameStatus.PLAYING
-        elif "fade-backlog" in classes_str:
-            status = GameStatus.BACKLOG
-        elif "fade-wishlist" in classes_str:
-            status = GameStatus.WISHLIST
-
-    return status, status_title, is_liked, log_id, logged_at
+def _owner_collection_status(soup: BeautifulSoup) -> GameStatus:
+    """Read the profile owner's collection, not the viewer's quick-edit state."""
+    statuses = set()
+    for marker in soup.select('[data-controller~="game-filters"][data-game-filters-base-url-value]'):
+        path = urlsplit(marker["data-game-filters-base-url-value"]).path.strip("/").split("/")
+        if len(path) < 4 or path[0] != "u" or path[2] != "games":
+            continue
+        preset = marker.get("data-game-filters-preset-value")
+        if preset != path[3] or preset not in {"played", "playing", "backlog", "wishlist"}:
+            return GameStatus.UNKNOWN
+        statuses.add(GameStatus(preset))
+    return next(iter(statuses)) if len(statuses) == 1 else GameStatus.UNKNOWN
 
 
-def parse_game_card(card: Tag) -> Optional[GameEntry]:
+def parse_status_and_metadata(
+    card: Tag, *, owner_status: GameStatus = GameStatus.UNKNOWN,
+) -> tuple[GameStatus, Optional[str], bool, Optional[str], Optional[datetime]]:
+    """Use validated owner collection context; absent owner metadata stays empty.
+
+    Preloaded logs, quick-access buttons, and fade classes describe the logged-in
+    viewer. They cannot establish the owner's completion label, like, or log ID.
+    """
+    return owner_status, None, False, None, None
+
+
+def parse_game_card(card: Tag, *, owner_status: GameStatus = GameStatus.UNKNOWN) -> Optional[GameEntry]:
     """Parse a single game card into a GameEntry model."""
     link = card.select_one("a.cover-link")
     if not link:
@@ -106,7 +94,7 @@ def parse_game_card(card: Tag) -> Optional[GameEntry]:
     game_id = game_cover.get("game_id")
 
     rating = parse_rating(card)
-    status, status_title, is_liked, log_id, logged_at = parse_status_and_metadata(card)
+    status, status_title, is_liked, log_id, logged_at = parse_status_and_metadata(card, owner_status=owner_status)
 
     return GameEntry(
         slug=slug,
@@ -136,11 +124,12 @@ def parse_games_page(html: str) -> tuple[list[GameEntry], bool]:
     if not cards:
         cards = soup.select(".rating-hover")
 
+    owner_status = _owner_collection_status(soup)
     games: list[GameEntry] = []
     seen_slugs: set[str] = set()
 
     for card in cards:
-        entry = parse_game_card(card)
+        entry = parse_game_card(card, owner_status=owner_status)
         if entry and entry.slug not in seen_slugs:
             games.append(entry)
             seen_slugs.add(entry.slug)
