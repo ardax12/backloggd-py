@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "backloggd-py"
-version = "0.2.0"
+version = "0.2.1"
 description = "Fast, typed async & sync Python SDK, web scraper, and taste-matching engine for Backloggd."
 readme = "README.md"
 license = { text = "MIT" }

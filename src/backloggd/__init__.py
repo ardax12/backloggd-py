@@ -36,7 +36,7 @@ from backloggd.models import (
 )
 from backloggd.analytics.matcher import calculate_similarity_raw, compare_libraries
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     # Clients, Cache & Utilities

@@ -1,9 +1,9 @@
 # backloggd-py
 
-[![PyPI version](https://img.shields.io/badge/pypi-v0.2.0-blue.svg)](https://pypi.org/project/backloggd-py/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.2.1-blue.svg)](https://pypi.org/project/backloggd-py/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests: 51 Offline Passing](https://img.shields.io/badge/tests-51%20offline%20passing-brightgreen.svg)](#testing)
+[![Tests: 74 Offline Passing](https://img.shields.io/badge/tests-74%20offline%20passing-brightgreen.svg)](#testing)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 A modern, high-performance async & sync Python SDK, web scraper, and taste-matching recommendation engine for [Backloggd](https://backloggd.com).
@@ -382,9 +382,9 @@ requires `await`; the synchronous `Backloggd` client has the same method.
 rating, notes, immutable timestamp (`occurred_at`), and numeric permalink
 (`reference`) when the page exposes them. It contains no Discord state.
 
-The source tree adds `get_user_activity_snapshot(username, *, stop_at_ids=(),
+Both clients expose `get_user_activity_snapshot(username, *, stop_at_ids=(),
 max_pages=5)`, returning an `ActivitySnapshot` with `entries`, `coverage`, and
-`pages_read`. This additive method is not in the published 0.2.0 package. Current public
+`pages_read`. This additive method is available starting in 0.2.1. Current public
 activity pages expose no validated pagination control, so the SDK reads one page
 and reports `coverage="unsupported"` unless it finds a supplied boundary ID on
 that page. It never treats an empty or challenged response as proof that history
