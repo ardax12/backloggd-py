@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4
+
+### Added
+- `BackloggdClient.get_user_collection_counts()` reads Played, Playing, Backlog, and Wishlist totals from one Games page, including explicit zero counts.
+
 ## 0.2.3
 
 ### Added
