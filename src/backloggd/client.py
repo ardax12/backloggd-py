@@ -37,7 +37,7 @@ from backloggd.parsers.reviews import (
 )
 from backloggd.parsers.lists import parse_user_lists_overview, parse_single_list_page
 from backloggd.parsers.search import parse_game_search_results
-from backloggd.parsers.profile import parse_user_profile_page
+from backloggd.parsers.profile import parse_user_collection_counts, parse_user_profile_page
 from backloggd.parsers.social import parse_user_social_page
 from backloggd.parsers.journal import parse_journal_page, validate_journal_page
 from backloggd.parsers.activity import parse_user_activity_page, parse_user_game_rating, validate_activity_page
@@ -588,6 +588,15 @@ class BackloggdClient:
         return [u for u in following if u.username.lower() in follower_map]
 
     # ==================== Targeted Collections (Playing, Backlog, Wishlist) ====================
+
+    async def get_user_collection_counts(self, username: str) -> dict[str, int]:
+        """Fetch visible collection totals from one Games page."""
+        user = self.clean_username(username)
+        if not user or user in {".", ".."} or "/" in user:
+            raise ValueError("Expected a username")
+        url = f"{BASE_URL}/u/{quote(user, safe='')}/games/"
+        response = await self._request_with_retry("GET", url, resource_type="user")
+        return parse_user_collection_counts(response.text, user)
 
     async def get_user_playing(
         self,

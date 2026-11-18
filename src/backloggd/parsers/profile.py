@@ -2,11 +2,33 @@
 
 import re
 from typing import Optional
+from urllib.parse import urlsplit
 from bs4 import BeautifulSoup, NavigableString, TemplateString, Tag
+from backloggd.exceptions import PageParseError
 from backloggd.models.game import GameEntry
 from backloggd.models.user import UserProfile
 
 TEXT_TYPES = (NavigableString, TemplateString)
+
+
+def parse_user_collection_counts(html: str, username: str) -> dict[str, int]:
+    """Read the total counts displayed in a profile's Games tab tooltips."""
+    soup = BeautifulSoup(html, "lxml")
+    prefix = f"/u/{username.casefold()}/games/"
+    counts = {}
+    for link in soup.select("a.game-collection[href][data-tippy-content]"):
+        path = urlsplit(link["href"]).path.casefold()
+        if not path.startswith(prefix):
+            continue
+        collection = path[len(prefix):].rstrip("/")
+        if collection not in {"played", "playing", "backlog", "wishlist"}:
+            continue
+        total = re.fullmatch(r"([0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)\s+games?", link["data-tippy-content"].strip(), re.I)
+        if total:
+            counts[collection] = int(total[1].replace(",", ""))
+    if not counts:
+        raise PageParseError("Games page has no recognizable collection counts for this user")
+    return counts
 
 
 def _clean_text(tag: Optional[Tag], strip: bool = True) -> str:
