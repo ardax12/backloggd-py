@@ -1,6 +1,6 @@
 """Backloggd Python SDK and Taste Matcher."""
 
-from backloggd.models.activity import ActivityEntry, ActivitySnapshot
+from backloggd.models.activity import ActivityEntry, ActivityGame, ActivitySnapshot, GroupedActivityEntry
 
 from backloggd.client import BackloggdClient
 from backloggd.sync_client import Backloggd
@@ -60,7 +60,9 @@ __all__ = [
     "UserSummary",
     "JournalEntry",
     "ActivityEntry",
+    "ActivityGame",
     "ActivitySnapshot",
+    "GroupedActivityEntry",
     "MatchComparison",
     "RatingDisagreement",
     # Analytics

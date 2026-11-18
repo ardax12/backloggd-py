@@ -20,6 +20,20 @@ class ActivityEntry:
 
 
 @dataclass(slots=True, frozen=True)
+class ActivityGame:
+    slug: str
+    title: str
+    cover_url: Optional[str]
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class GroupedActivityEntry(ActivityEntry):
+    """Games named in a grouped activity row without per-game action details."""
+
+    grouped_games: tuple[ActivityGame, ...]
+
+
+@dataclass(slots=True, frozen=True)
 class ActivitySnapshot:
     """A validated activity fetch and an explicit statement of its coverage."""
 

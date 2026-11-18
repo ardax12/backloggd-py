@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Iterable, Optional, Union, Callable
+from urllib.parse import quote
 import httpx
 
 from backloggd.exceptions import (
@@ -39,7 +40,7 @@ from backloggd.parsers.search import parse_game_search_results
 from backloggd.parsers.profile import parse_user_profile_page
 from backloggd.parsers.social import parse_user_social_page
 from backloggd.parsers.journal import parse_journal_page, validate_journal_page
-from backloggd.parsers.activity import parse_user_activity_page, validate_activity_page
+from backloggd.parsers.activity import parse_user_activity_page, parse_user_game_rating, validate_activity_page
 from backloggd.analytics.matcher import compare_libraries
 from backloggd.cache import (
     CacheManager,
@@ -740,6 +741,16 @@ class BackloggdClient:
         resp = await self._request_with_retry("GET", url, resource_type="user")
         validate_activity_page(resp.text)
         return parse_user_activity_page(resp.text, user)
+
+    async def get_user_game_rating(self, username: str, game_slug: str) -> Optional[float]:
+        """Fetch the owner's public rating for one game, even without a play session."""
+        user = self.clean_username(username)
+        slug = self.clean_slug(game_slug)
+        if not user or not slug or any(part in {".", ".."} or "/" in part for part in (user, slug)):
+            raise ValueError("Expected a username and a game slug")
+        url = f"{BASE_URL}/u/{quote(user, safe='')}/logs/{quote(slug, safe='')}/"
+        response = await self._request_with_retry("GET", url, resource_type="user")
+        return parse_user_game_rating(response.text, user)
 
     async def get_user_activity_snapshot(
         self,

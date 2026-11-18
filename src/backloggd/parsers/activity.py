@@ -3,7 +3,7 @@ import hashlib
 import re
 from bs4 import BeautifulSoup
 from typing import Optional
-from backloggd.models.activity import ActivityEntry
+from backloggd.models.activity import ActivityEntry, ActivityGame, GroupedActivityEntry
 from backloggd.utils import clean_image_url
 from backloggd.exceptions import PageParseError
 
@@ -13,6 +13,24 @@ def validate_activity_page(html: str) -> None:
     soup = BeautifulSoup(html, "html.parser")
     if not soup.select_one("#activities-list"):
         raise PageParseError("Activity page is blocked or has an unrecognized layout")
+
+
+def parse_user_game_rating(html: str, username: str) -> Optional[float]:
+    """Read the profile owner's rating from the game log header."""
+    soup = BeautifulSoup(html, "lxml")
+    title = soup.title.get_text(strip=True) if soup.title else ""
+    if not title.casefold().startswith(f"{username.casefold()}'s logs for "):
+        raise PageParseError("Expected the user's game logs page")
+    for header in soup.select(".section-title"):
+        if header.get_text(strip=True) != "Rating":
+            continue
+        stars = header.parent.select_one(".star-ratings-static .stars-top")
+        width = re.search(r"\bwidth:\s*(\d+(?:\.\d+)?)\s*%", stars.get("style", "") if stars else "")
+        if width:
+            percentage = float(width[1])
+            if 0 <= percentage <= 100 and percentage % 10 == 0:
+                return percentage / 20 if percentage else None
+    raise PageParseError("Game logs page has an unrecognized rating section")
 
 
 def parse_user_activity_page(html: str, username: str) -> list[ActivityEntry]:
@@ -141,12 +159,35 @@ def parse_user_activity_page(html: str, username: str) -> list[ActivityEntry]:
         hash_input = f"{username.lower()}:{game_slug}:{action_type}:{identity}"
         act_id = "act_" + hashlib.sha256(hash_input.encode("utf-8")).hexdigest()[:24]
 
+        grouped_games = {}
+        if (
+            action_type == "unknown"
+            and row_text.startswith("logged")
+            and headline.select_one('a[href*="/activity/expand/play/"]')
+        ):
+            for link in row.select(".activity-meta-content a[href]"):
+                match = re.fullmatch(r"/games/([\w-]+)/?", link["href"])
+                if not match or match[1] in grouped_games:
+                    continue
+                image = link.find("img")
+                slug = match[1]
+                title = image.get("alt") if image else link.get_text(strip=True)
+                grouped_games[slug] = ActivityGame(
+                    slug, title or slug.replace("-", " ").title(),
+                    clean_image_url(image.get("src") if image else None),
+                )
+            if len(grouped_games) >= 2 and identity:
+                group_identity = f"{username.lower()}:{identity}:{','.join(sorted(grouped_games))}"
+                act_id = "group_" + hashlib.sha256(group_identity.encode("utf-8")).hexdigest()[:24]
+
         if act_id in seen_ids:
             continue
         seen_ids.add(act_id)
 
+        entry_type = GroupedActivityEntry if len(grouped_games) >= 2 else ActivityEntry
+        group_fields = {"grouped_games": tuple(grouped_games.values())} if len(grouped_games) >= 2 else {}
         activities.append(
-            ActivityEntry(
+            entry_type(
                 activity_id=act_id,
                 game_title=game_title,
                 game_slug=game_slug,
@@ -160,6 +201,7 @@ def parse_user_activity_page(html: str, username: str) -> list[ActivityEntry]:
                 reference=reference,
                 is_replay=action_type == "replay" or bool(re.search(r"\breplay(?:ed|ing)?\b", row_text)),
                 has_spoilers=bool(row.select_one(".spoiler, .has-spoilers, [class*=spoiler]")),
+                **group_fields,
             )
         )
 
