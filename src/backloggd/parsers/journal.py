@@ -2,12 +2,15 @@
 
 import re
 from typing import Optional
+from urllib.parse import parse_qs, urljoin, urlsplit
 from bs4 import BeautifulSoup
 from backloggd.models.journal import JournalEntry
 from backloggd.exceptions import PageParseError
 
 
-def parse_journal_page(html: str) -> tuple[list[JournalEntry], bool]:
+def parse_journal_page(
+    html: str, *, journal_url: str | None = None, page: int = 1,
+) -> tuple[list[JournalEntry], bool]:
     """Parse a user's journal page into a list of JournalEntry models.
 
     Returns:
@@ -91,11 +94,35 @@ def parse_journal_page(html: str) -> tuple[list[JournalEntry], bool]:
             )
         )
 
-    # Check for next page
-    next_btn = soup.find("a", rel=lambda r: bool(r and "next" in r)) or soup.find("a", string=lambda s: bool(s and "Next" in s))
-    has_more = bool(next_btn)
+    return entries, _has_next_journal_page(soup, journal_url, page)
 
-    return entries, has_more
+
+def _has_next_journal_page(soup: BeautifulSoup, journal_url: str | None, page: int) -> bool:
+    # Ignore generic site/game links and controls that point back to this page.
+    base = journal_url or "https://backloggd.com/"
+    current = urlsplit(base)
+    for link in soup.select("a[href]"):
+        label = str(link.get("aria-label") or link.get_text(strip=True)).casefold()
+        if "next" not in link.get("rel", []) and label not in {"next", "next page"}:
+            continue
+        if str(link.get("aria-disabled", "")).casefold() == "true":
+            continue
+        try:
+            target = urlsplit(urljoin(base, link["href"]))
+            if target.scheme not in {"http", "https"} or target.username is not None:
+                continue
+            if (target.hostname or "").removeprefix("www.") != (current.hostname or "").removeprefix("www."):
+                continue
+            if journal_url:
+                if target.path.rstrip("/").casefold() != current.path.rstrip("/").casefold():
+                    continue
+            elif target.path != "/" and not re.fullmatch(r"/u/[^/]+/journal/?", target.path, re.I):
+                continue
+        except ValueError:
+            continue
+        if parse_qs(target.query).get("page") == [str(page + 1)]:
+            return True
+    return False
 
 
 def validate_journal_page(html: str) -> None:

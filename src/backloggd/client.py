@@ -785,6 +785,7 @@ class BackloggdClient:
         user = self.clean_username(username)
         url = f"{BASE_URL}/u/{user}/journal/"
         journal_entries: list[JournalEntry] = []
+        previous_entries: list[JournalEntry] | None = None
         page = 1
 
         while True:
@@ -793,7 +794,9 @@ class BackloggdClient:
 
             resp = await self._request_with_retry("GET", url, resource_type="user", params={"page": page})
             validate_journal_page(resp.text)
-            entries, has_more = parse_journal_page(resp.text)
+            entries, has_more = parse_journal_page(resp.text, journal_url=url, page=page)
+            if entries and entries == previous_entries:
+                raise PageParseError(f"Journal page {page} repeated the previous page")
             if has_more and require_complete and max_pages is not None and page >= max_pages:
                 raise PageParseError("Journal page limit reached before a complete history was read")
             if not entries and has_more:
@@ -805,6 +808,7 @@ class BackloggdClient:
             if not has_more:
                 break
 
+            previous_entries = entries
             page += 1
             if self.request_delay > 0:
                 await asyncio.sleep(self.request_delay)

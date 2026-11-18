@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+### Fixed
+- Journal pagination follows only forward links for the same journal.
+- Both clients reject repeated journal pages before returning duplicate or incomplete history.
+
 ## 0.2.1
 
 ### Added
