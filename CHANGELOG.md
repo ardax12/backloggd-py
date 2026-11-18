@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+### Added
+- Grouped activity entries expose each named game through `grouped_games`.
+- `BackloggdClient.get_user_game_rating()` reads the profile owner's score from a single game logs page, including games without play sessions.
+
 ## 0.2.2
 
 ### Fixed
