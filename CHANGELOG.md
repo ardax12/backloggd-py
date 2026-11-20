@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.5
+
+### Fixed
+- `parse_rating()` now reads profile-owner star ratings rendered below game covers (`.game-card-meta .star-rating-below .stars-top`) in addition to cover-overlay `data-rating` attributes, while keeping viewer-only `#preloaded-log-*` and `#more-button-container-*` markup isolated.
+- Zero ratings (`data-rating="0"` and `width: 0%`) now return `None` instead of `0.0`.
+- Bumped `LIBRARY_CACHE_VERSION` to `3` so SDK library caches written without below-cover ratings are refreshed automatically.
+
 ## 0.2.4
 
 ### Added
