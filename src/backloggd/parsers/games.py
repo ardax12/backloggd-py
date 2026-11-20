@@ -1,5 +1,6 @@
 """HTML parser for Backloggd games library grid."""
 
+import re
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlsplit
@@ -7,33 +8,51 @@ from bs4 import BeautifulSoup, Tag
 from backloggd.models.game import GameEntry, GameStatus
 
 PAGE_SIZE = 70
+_STYLE_WIDTH_RE = re.compile(r"(?:^|[;\s])width\s*:\s*(\d+(?:\.\d+)?)\s*%", re.IGNORECASE)
+
+
+def _is_viewer_only_node(node: Tag) -> bool:
+    """Return True when a node belongs to hidden viewer-only log/quick-edit markup."""
+    if node.has_attr("data-log-id"):
+        return True
+    for parent in (node, *node.parents):
+        if not isinstance(parent, Tag):
+            continue
+        node_id = parent.get("id") or ""
+        if node_id.startswith(("preloaded-log-", "more-button-container-")):
+            return True
+    return False
 
 
 def parse_rating(element: Tag) -> Optional[float]:
-    """Extract rating from a game card element."""
-    # The visible cover holds the owner's rating; sibling preloaded logs hold
-    # the viewer's rating, including when the owner has never rated the game.
+    """Extract the profile owner's rating from a game card element."""
+    # The visible cover or sibling .game-card-meta holds the owner's rating;
+    # sibling preloaded logs hold the viewer's rating even when the owner did not rate.
     cover = element if "game-cover" in element.get("class", []) else element.select_one(".game-cover")
     scope = cover if cover is not None else element
     rated_el = scope if scope.has_attr("data-rating") else scope.find(attrs={"data-rating": True})
-    if rated_el and (
-        rated_el.has_attr("data-log-id")
-        or rated_el.find_parent(id=lambda value: bool(value and value.startswith("preloaded-log-")))
-    ):
+    if rated_el and _is_viewer_only_node(rated_el):
         rated_el = None
     if rated_el and rated_el.get("data-rating"):
         try:
-            return float(rated_el["data-rating"]) / 2.0
+            raw_rating = float(rated_el["data-rating"])
+            if 0 < raw_rating <= 10:
+                return raw_rating / 2.0
         except (ValueError, TypeError):
             pass
 
-    stars_top = scope.select_one(".stars-top")
-    if stars_top and "width:" in stars_top.get("style", ""):
-        try:
-            w = stars_top["style"].split("width:")[1].split("%")[0].strip()
-            return float(w) / 20.0
-        except (ValueError, IndexError, TypeError):
-            pass
+    for stars_top in element.select(".stars-top"):
+        if _is_viewer_only_node(stars_top):
+            continue
+        style = stars_top.get("style")
+        if not isinstance(style, str):
+            continue
+        match = _STYLE_WIDTH_RE.search(style)
+        if not match:
+            continue
+        percentage = float(match.group(1))
+        if 0 < percentage <= 100:
+            return percentage / 20.0
 
     return None
 

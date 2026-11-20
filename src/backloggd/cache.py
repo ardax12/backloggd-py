@@ -18,7 +18,7 @@ DEFAULT_PROFILE_TTL = 86400.0       # 24 hours
 DEFAULT_GAME_TTL = 604800.0         # 7 days
 DEFAULT_REVIEW_TTL = 86400.0        # 24 hours
 DEFAULT_LIST_TTL = 86400.0          # 24 hours
-LIBRARY_CACHE_VERSION = 2  # Older libraries may contain the viewer's statuses/logs.
+LIBRARY_CACHE_VERSION = 3  # Older libraries may contain viewer statuses or miss below-cover ratings.
 
 
 class CacheManager:

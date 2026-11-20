@@ -138,3 +138,96 @@ def test_legacy_library_cache_with_viewer_statuses_is_not_reused(tmp_path):
             }]), 1, time.time()),
         )
     assert cache.get_library("barryquill") is None
+
+
+def test_v2_library_cache_missing_below_cover_ratings_is_not_reused(tmp_path):
+    cache = CacheManager(cache_path=tmp_path / "cache.db")
+    with sqlite3.connect(cache.cache_path) as connection:
+        connection.execute(
+            "INSERT INTO library_cache VALUES (?, ?, ?, ?)",
+            ("ardax12", json.dumps({
+                "version": 2,
+                "games": [{
+                    "slug": "half-life-2",
+                    "title": "Half-Life 2",
+                    "rating": None,
+                    "status": "played",
+                }],
+            }), 1, time.time()),
+        )
+    assert cache.get_library("ardax12") is None
+
+
+def test_below_cover_star_rating_layout_parses_owner_rating():
+    page_html = """
+    <html><body>
+      <div class="row" data-controller="game-filters"
+           data-game-filters-base-url-value="/u/ardax12/games/played/by/added/"
+           data-game-filters-preset-value="played"></div>
+      <div class="col col-cus-user-games px-1 mt-2">
+        <div class="card mx-auto game-cover quick-access" game_id="233">
+          <a href="/games/half-life-2/" class="cover-link" data-turbo-frame="_top"></a>
+          <div class="overflow-wrapper">
+            <img class="card-img height" src="https://images.igdb.com/igdb/image/upload/t_cover_big/co1nmw.jpg" alt="Half-Life 2">
+          </div>
+          <div class="game-text-centered">Half-Life 2</div>
+        </div>
+        <div class="d-none" id="more-button-container-233"></div>
+        <div class="d-none" id="preloaded-log-233">
+          <div data-log-id="999999" data-rating="4" data-status-title="Played"></div>
+        </div>
+        <div class="row my-1 mx-0 game-card-meta">
+          <div class="col-auto px-0 mr-auto my-auto">
+            <div class="row mx-0 star-rating-below">
+              <div class="row star-ratings-static">
+                <div class="stars-top" style="width:90%;">
+                  <span class="star"></span><span class="star"></span><span class="star"></span><span class="star"></span><span class="star"></span>
+                </div>
+                <div class="stars-bottom">
+                  <span class="star"></span><span class="star"></span><span class="star"></span><span class="star"></span><span class="star"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body></html>
+    """
+    games, _ = parse_games_page(page_html)
+    assert len(games) == 1
+    assert games[0].slug == "half-life-2"
+    assert games[0].status == GameStatus.PLAYED
+    assert games[0].rating == 4.5
+
+
+def test_below_cover_zero_width_and_viewer_only_stars_remain_unrated():
+    page_html = """
+    <html><body>
+      <div class="col col-cus-user-games px-1 mt-2">
+        <div class="card mx-auto game-cover quick-access" data-rating="0" game_id="100">
+          <a href="/games/zero-stars/" class="cover-link"></a>
+          <div class="game-text-centered">Zero Stars</div>
+        </div>
+        <div class="d-none" id="preloaded-log-100">
+          <div data-log-id="111" data-rating="8">
+            <div class="stars-top" style="width:80%;"></div>
+          </div>
+        </div>
+        <div class="d-none" id="more-button-container-100">
+          <div class="stars-top" style="width:60%;"></div>
+        </div>
+        <div class="row my-1 mx-0 game-card-meta">
+          <div class="row mx-0 star-rating-below">
+            <div class="row star-ratings-static">
+              <div class="stars-top" style="max-width: 100%; width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body></html>
+    """
+    games, _ = parse_games_page(page_html)
+    assert len(games) == 1
+    assert games[0].slug == "zero-stars"
+    assert games[0].rating is None
+
