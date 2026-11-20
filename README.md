@@ -1,6 +1,6 @@
 # backloggd-py
 
-[![PyPI version](https://img.shields.io/badge/pypi-v0.2.1-blue.svg)](https://pypi.org/project/backloggd-py/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.2.5-blue.svg)](https://pypi.org/project/backloggd-py/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests: 74 Offline Passing](https://img.shields.io/badge/tests-74%20offline%20passing-brightgreen.svg)](#testing)
